@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from dataset.datainfo import RawInfo, DATA_PATH
 from dataset.feature.feature import *
@@ -5,6 +6,7 @@ from typing import Dict, List
 import json
 
 FEATURE_DEF_PATH = DATA_PATH / 'feature_definition'
+os.makedirs(FEATURE_DEF_PATH, exist_ok=True)
 
 class FeatureDefiner:
     RAW_INFO = RawInfo()

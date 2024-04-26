@@ -14,10 +14,10 @@ from dataset.const import TOPICS, Topic, KEY_COL, DATE_COL, TARGET_COL
 
 
 class FeatureLoader:
-    def __init__(self, topic: Topic, type: str):
+    def __init__(self, topic: Topic, type: str, conf: dict = None):
         self.topic = topic
         self.type = type
-        self.data = self._load_data(type_=type, stage='prep')
+        self.data = self._load_data(type_=type, stage='prep', rawinfo=RawInfo(conf))
 
     def _load_data(
         self,

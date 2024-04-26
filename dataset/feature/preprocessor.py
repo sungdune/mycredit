@@ -9,9 +9,9 @@ from dataset.const import TOPICS, DEPTH_2_TO_1_QUERY, CB_A_PREPREP_QUERY
 
 
 class Preprocessor:
-    RAW_INFO = RawInfo()
 
-    def __init__(self, type_: str):
+    def __init__(self, type_: str, conf: dict = None):
+        self.raw_info = RawInfo(conf)
         self.type_ = type_
 
     def preprocess(self):
@@ -33,9 +33,9 @@ class Preprocessor:
                 raise ValueError(f'No query for {topic.name} in DEPTH_2_TO_1_QUERY but it is depth=2 topic')
 
     def _memory_opt(self, topic: str, depth: int):
-        data = self.RAW_INFO.read_raw(topic, depth=depth, reader=RawReader('polars'), type_=self.type_)
+        data = self.raw_info.read_raw(topic, depth=depth, reader=RawReader('polars'), type_=self.type_)
         data = optimize_dataframe(data, verbose=True)
-        self.RAW_INFO.save_as_prep(data, topic, depth=depth, type_=self.type_)
+        self.raw_info.save_as_prep(data, topic, depth=depth, type_=self.type_)
 
     def _join_depth2_0(self, depth1, depth2):
         depth2 = depth2.filter(pl.col('num_group2') == 0).drop('num_group2')
@@ -43,20 +43,20 @@ class Preprocessor:
         return depth1
 
     def _preprocess_each(self, topic: str, query: str):
-        depth2 = self.RAW_INFO.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
-        depth1 = self.RAW_INFO.read_raw(topic, depth=1, reader=RawReader('polars'), type_=self.type_)
+        depth2 = self.raw_info.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
+        depth1 = self.raw_info.read_raw(topic, depth=1, reader=RawReader('polars'), type_=self.type_)
         temp = pl.SQLContext(data=depth2).execute(query, eager=True)
         depth1 = depth1.join(temp, on=['case_id', 'num_group1'], how='left')
         depth1 = self._join_depth2_0(depth1, depth2)
 
         depth1 = optimize_dataframe(depth1, verbose=True)
-        self.RAW_INFO.save_as_prep(depth1, topic, depth=1, type_=self.type_)
+        self.raw_info.save_as_prep(depth1, topic, depth=1, type_=self.type_)
 
     def _preprocess_cb_a(self, topic: str, query: str):
         temp_path = DATA_PATH / 'parquet_preps' / self.type_
         os.makedirs(temp_path, exist_ok=True)
 
-        depth2 = self.RAW_INFO.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
+        depth2 = self.raw_info.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
         print('[*] Read depth=2 data')
         depth2 = optimize_dataframe(depth2, verbose=True)
 
@@ -74,11 +74,11 @@ class Preprocessor:
         del depth2
         gc.collect()
 
-        depth1 = self.RAW_INFO.read_raw(topic, depth=1, reader=RawReader('polars'), type_=self.type_)
+        depth1 = self.raw_info.read_raw(topic, depth=1, reader=RawReader('polars'), type_=self.type_)
         print('[*] Read depth=1 data')
         depth1 = optimize_dataframe(depth1, verbose=True)
 
-        depth2 = self.RAW_INFO.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
+        depth2 = self.raw_info.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
         print('[*] Read depth=2 data')
         depth2 = optimize_dataframe(depth2, verbose=True)
 
@@ -91,7 +91,7 @@ class Preprocessor:
         del depth2_temp
         gc.collect()
 
-        self.RAW_INFO.save_as_prep(depth1, topic, depth=1, type_=self.type_)
+        self.raw_info.save_as_prep(depth1, topic, depth=1, type_=self.type_)
 
 if __name__ == "__main__":
     prep = Preprocessor('train')
