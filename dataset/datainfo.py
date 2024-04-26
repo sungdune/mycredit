@@ -9,7 +9,8 @@ from pyarrow.parquet import ParquetFile
 
 
 BASE_PATH = Path(os.getcwd())
-DATA_PATH = BASE_PATH / "data" / "home-credit-credit-risk-model-stability"
+# DATA_PATH = BASE_PATH / "data" / "home-credit-credit-risk-model-stability"
+DATA_PATH = Path('/kaggle/input') / "home-credit-credit-risk-model-stability"
 POSTFIXES = {
     "P": "Transform DPD (Days Past Due)",
     "M": "Masking Categories",
