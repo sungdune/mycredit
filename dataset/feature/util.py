@@ -37,6 +37,8 @@ def optimize_dataframe(df: pl.DataFrame, verbose=False) -> pl.DataFrame:
         for col in df.columns
     )
     for col, data_type in zip(df.columns, data_types):
+        if col in ['case_id', 'num_group1', 'num_group2']:
+            continue
         df = df.with_columns(
             pl.col(col).cast(data_type),
         )
