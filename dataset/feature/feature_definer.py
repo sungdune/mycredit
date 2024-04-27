@@ -9,7 +9,6 @@ FEATURE_DEF_PATH = DATA_PATH / 'feature_definition'
 os.makedirs(FEATURE_DEF_PATH, exist_ok=True)
 
 class FeatureDefiner:
-    RAW_INFO = RawInfo()
 
     def __init__(
         self,
@@ -17,9 +16,12 @@ class FeatureDefiner:
         period_cols: List[str] = None,
         depth: int = 1,
         stage: str = 'prep',
+        cnf: dict = None,
     ):
         self.topic: str = topic
-        self.rawdata: pd.DataFrame = self.RAW_INFO.read_raw(self.topic, depth=depth, stage=stage)
+        self.rawdata: pd.DataFrame = RawInfo(cnf).read_raw(
+            self.topic, depth=depth, stage=stage
+        )
         self.raw_cols: Dict[str, Column] = {
             col: Column(name=col, data_type=str(type))
             for col, type in self.rawdata.dtypes.items()
