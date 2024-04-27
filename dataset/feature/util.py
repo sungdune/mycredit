@@ -32,8 +32,6 @@ def optimize_dataframe_datatype(col_type: str, c_min: float, c_max: float):
 
 def optimize_dataframe(df: pl.DataFrame, verbose=False) -> pl.DataFrame:
     start_memory: float = df.estimated_size('mb')
-    print(df.columns)
-    print(df.dtypes)
     data_types: List = Parallel(n_jobs=-1)(
         delayed(optimize_dataframe_datatype)(
             str(df[col].dtype),

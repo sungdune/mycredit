@@ -21,9 +21,9 @@ class FeatureLoader:
 
     def _load_data(
         self,
+        rawinfo,
         type_='train',
         stage='prep',
-        rawinfo=RawInfo(),
         reader=RawReader('polars'),
     ) -> pl.DataFrame:
         base_columns = [*KEY_COL, *DATE_COL]
