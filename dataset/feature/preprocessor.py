@@ -16,6 +16,7 @@ class Preprocessor:
 
     def preprocess(self):
         for topic in TOPICS:
+            gc.collect()
             print(f'\n[*] Preprocessing {topic.name}, depth={topic.depth}')
             if topic.depth <= 1 and topic.name not in DEPTH_2_TO_1_QUERY:
                 print(f'  [+] Memory optimization {topic.name}')

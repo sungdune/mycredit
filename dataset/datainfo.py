@@ -225,7 +225,9 @@ class RawInfo:
         if reader.return_type == 'pandas' and stage == "raw":
             raw_df = pd.concat([reader(rf.get_path(self.data_dir_path)) for rf in raw_files])
         elif reader.return_type == 'polars' and stage == "raw":
-            raw_df = pl.concat([reader(rf.get_path(self.data_dir_path)) for rf in raw_files])            
+            raw_df = pl.concat(
+                [reader(rf.get_path(self.data_dir_path)) for rf in raw_files], how='vertical_relaxed'
+            )
         elif stage == "prep":
             raw_df = reader(
                 DATA_PATH / 'parquet_preps' / type_ / f"{type_}_{file_name}_{depth}.parquet"
