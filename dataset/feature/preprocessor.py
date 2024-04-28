@@ -1,4 +1,15 @@
 import gc
+import shutil
+import polars as pl
+import os
+
+from dataset.datainfo import RawInfo, RawReader, DATA_PATH
+from dataset.feature.feature import *
+from dataset.feature.util import optimize_dataframe
+from dataset.const import TOPICS, DEPTH_2_TO_1_QUERY, CB_A_PREPREP_QUERY
+
+
+import gc
 import polars as pl
 import os
 
@@ -34,7 +45,7 @@ class Preprocessor:
 
     def _memory_opt(self, topic: str, depth: int):
         data = self.raw_info.read_raw(topic, depth=depth, reader=RawReader('polars'), type_=self.type_)
-        data = optimize_dataframe(data, verbose=True)
+        data = optimize_dataframe(data)
         self.raw_info.save_as_prep(data, topic, depth=depth, type_=self.type_)
 
     def _join_depth2_0(self, depth1, depth2):
@@ -49,7 +60,7 @@ class Preprocessor:
         depth1 = depth1.join(temp, on=['case_id', 'num_group1'], how='left')
         depth1 = self._join_depth2_0(depth1, depth2)
 
-        depth1 = optimize_dataframe(depth1, verbose=True)
+        depth1 = optimize_dataframe(depth1)
         self.raw_info.save_as_prep(depth1, topic, depth=1, type_=self.type_)
 
     def _preprocess_cb_a(self, topic: str, query: str):
@@ -57,23 +68,23 @@ class Preprocessor:
         os.makedirs(temp_path, exist_ok=True)
         os.makedirs(temp_path/'agg', exist_ok=True)
         os.makedirs(temp_path/'depth2_0', exist_ok=True)
-        
+
         iter = self.raw_info.read_raw_iter(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
         for i, depth2 in enumerate(iter):
-            depth2 = optimize_dataframe(depth2, verbose=True)
-            
+            depth2 = optimize_dataframe(depth2)
+
             depth2_0 = depth2.filter(pl.col('num_group2') == 0).drop('num_group2')
             temp_file = temp_path / 'depth2_0'/ f"{self.type_}_{topic}_1_temp_{i}.parquet"
             depth2_0.write_parquet(temp_file)
             del depth2_0
-            
+
             depth2 = pl.SQLContext(data=depth2).execute(
                 CB_A_PREPREP_QUERY,
                 eager=True,
             )
-            depth2 = optimize_dataframe(depth2, verbose=True)
+            depth2 = optimize_dataframe(depth2)
             depth2 = pl.SQLContext(data=depth2).execute(query, eager=True)
-            depth2 = optimize_dataframe(depth2, verbose=True)
+            depth2 = optimize_dataframe(depth2)
             temp_file = temp_path / 'agg' / f"{self.type_}_{topic}_1_temp_{i}.parquet"
             depth2.write_parquet(temp_file)
             del depth2
@@ -81,19 +92,27 @@ class Preprocessor:
 
         depth1 = self.raw_info.read_raw(topic, depth=1, reader=RawReader('polars'), type_=self.type_)
         print('[*] Read depth=1 data')
-        depth1 = optimize_dataframe(depth1, verbose=True)
+        depth1 = optimize_dataframe(depth1)
 
-        depth2_temp = pl.read_parquet(temp_path/'agg')
+        files = [f for f in os.listdir(temp_path / 'agg') if f.endswith('.parquet')]
+        dfs = [pl.read_parquet(temp_path/'agg'/file) for file in files]
+        depth2_temp = pl.concat(dfs, how='vertical_relaxed')
         depth1 = depth1.join(depth2_temp, on=['case_id', 'num_group1'], how='left')
         del depth2_temp
         gc.collect()
-        
-        depth2_temp = pl.read_parquet(temp_path/'depth2_0')
+
+        files = [f for f in os.listdir(temp_path / 'depth2_0') if f.endswith('.parquet')]
+        dfs = [pl.read_parquet(temp_path / 'depth2_0' / file) for file in files]
+        depth2_temp = pl.concat(dfs, how='vertical_relaxed')
         depth1 = depth1.join(depth2_temp, on=['case_id', 'num_group1'], how='left')
         del depth2_temp
         gc.collect()
 
         self.raw_info.save_as_prep(depth1, topic, depth=1, type_=self.type_)
+
+        # remove temp files
+        shutil.rmtree(temp_path / 'agg')
+        shutil.rmtree(temp_path / 'depth2_0')
 
 if __name__ == "__main__":
     prep = Preprocessor('train')
