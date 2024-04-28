@@ -9,16 +9,6 @@ from dataset.feature.util import optimize_dataframe
 from dataset.const import TOPICS, DEPTH_2_TO_1_QUERY, CB_A_PREPREP_QUERY
 
 
-import gc
-import polars as pl
-import os
-
-from dataset.datainfo import RawInfo, RawReader, DATA_PATH
-from dataset.feature.feature import *
-from dataset.feature.util import optimize_dataframe
-from dataset.const import TOPICS, DEPTH_2_TO_1_QUERY, CB_A_PREPREP_QUERY
-
-
 class Preprocessor:
 
     def __init__(self, type_: str, conf: dict = None):
@@ -28,13 +18,13 @@ class Preprocessor:
     def preprocess(self):
         for topic in TOPICS:
             gc.collect()
-            print(f'\n[*] Preprocessing {topic.name}, depth={topic.depth}')
             if topic.depth <= 1 and topic.name not in DEPTH_2_TO_1_QUERY:
-                print(f'  [+] Memory optimization {topic.name}')
+                print(f'[+] Memory optimization {topic.name}')
                 self._memory_opt(topic.name, depth=topic.depth)
             elif topic.depth <= 1 and topic.name in DEPTH_2_TO_1_QUERY:
-                print(f'  [+] skip {topic.name} because it is in DEPTH_2_TO_1_QUERY')
+                print(f'[+] skip {topic.name} because it is in DEPTH_2_TO_1_QUERY')
             elif topic.depth == 2 and topic.name in DEPTH_2_TO_1_QUERY:
+                print(f'[+] Preprocessing {topic.name}, depth={topic.depth}')
                 query = DEPTH_2_TO_1_QUERY[topic.name]
                 if topic.name == 'credit_bureau_a':
                     self._preprocess_cb_a(topic.name, query)
@@ -91,7 +81,6 @@ class Preprocessor:
             gc.collect()            
 
         depth1 = self.raw_info.read_raw(topic, depth=1, reader=RawReader('polars'), type_=self.type_)
-        print('[*] Read depth=1 data')
         depth1 = optimize_dataframe(depth1)
 
         files = [f for f in os.listdir(temp_path / 'agg') if f.endswith('.parquet')]
