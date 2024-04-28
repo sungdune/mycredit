@@ -27,7 +27,6 @@ class Preprocessor:
                 query = DEPTH_2_TO_1_QUERY[topic.name]
                 if topic.name == 'credit_bureau_a':
                     self._preprocess_cb_a(topic.name, query)
-                    print(f'  [+++] skip {topic.name} because it is credit_bureau_a')
                 else:
                     self._preprocess_each(topic.name, query)
             elif topic.depth == 2 and topic.name not in DEPTH_2_TO_1_QUERY:
@@ -56,38 +55,40 @@ class Preprocessor:
     def _preprocess_cb_a(self, topic: str, query: str):
         temp_path = DATA_PATH / 'parquet_preps' / self.type_
         os.makedirs(temp_path, exist_ok=True)
-
-        depth2 = self.raw_info.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
-        print('[*] Read depth=2 data')
-        depth2 = optimize_dataframe(depth2, verbose=True)
-
-        depth2 = pl.SQLContext(data=depth2).execute(
-            CB_A_PREPREP_QUERY,
-            eager=True,
-        )
-        depth2 = optimize_dataframe(depth2, verbose=True)
-
-        depth2 = pl.SQLContext(data=depth2).execute(query, eager=True)
-        depth2 = optimize_dataframe(depth2, verbose=True)
-
-        temp_file = temp_path / f"{self.type_}_{topic}_temp1.parquet"
-        depth2.write_parquet(temp_file)
-        del depth2
-        gc.collect()
+        os.makedirs(temp_path/'agg', exist_ok=True)
+        os.makedirs(temp_path/'depth2_0', exist_ok=True)
+        
+        iter = self.raw_info.read_raw_iter(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
+        for i, depth2 in enumerate(iter):
+            depth2 = optimize_dataframe(depth2, verbose=True)
+            
+            depth2_0 = depth2.filter(pl.col('num_group2') == 0).drop('num_group2')
+            temp_file = temp_path / 'depth2_0'/ f"{self.type_}_{topic}_1_temp_{i}.parquet"
+            depth2_0.write_parquet(temp_file)
+            del depth2_0
+            
+            depth2 = pl.SQLContext(data=depth2).execute(
+                CB_A_PREPREP_QUERY,
+                eager=True,
+            )
+            depth2 = optimize_dataframe(depth2, verbose=True)
+            depth2 = pl.SQLContext(data=depth2).execute(query, eager=True)
+            depth2 = optimize_dataframe(depth2, verbose=True)
+            temp_file = temp_path / 'agg' / f"{self.type_}_{topic}_1_temp_{i}.parquet"
+            depth2.write_parquet(temp_file)
+            del depth2
+            gc.collect()            
 
         depth1 = self.raw_info.read_raw(topic, depth=1, reader=RawReader('polars'), type_=self.type_)
         print('[*] Read depth=1 data')
         depth1 = optimize_dataframe(depth1, verbose=True)
 
-        depth2 = self.raw_info.read_raw(topic, depth=2, reader=RawReader('polars'), type_=self.type_)
-        print('[*] Read depth=2 data')
-        depth2 = optimize_dataframe(depth2, verbose=True)
-
-        depth1 = self._join_depth2_0(depth1, depth2)
-        del depth2
+        depth2_temp = pl.read_parquet(temp_path/'agg')
+        depth1 = depth1.join(depth2_temp, on=['case_id', 'num_group1'], how='left')
+        del depth2_temp
         gc.collect()
-
-        depth2_temp = pl.read_parquet(temp_file)
+        
+        depth2_temp = pl.read_parquet(temp_path/'depth2_0')
         depth1 = depth1.join(depth2_temp, on=['case_id', 'num_group1'], how='left')
         del depth2_temp
         gc.collect()
@@ -97,24 +98,3 @@ class Preprocessor:
 if __name__ == "__main__":
     prep = Preprocessor('train')
     prep.preprocess()
-
-
-# fd = FeatureDefiner('person', period_cols=None, depth=2)
-# features = fd.define_simple_features(20)
-# for feature in features:
-#     print(f', {feature.query} as {feature.name}')
-
-# fd = FeatureDefiner('applprev', period_cols=None, depth=2)
-# features = fd.define_simple_features(20)
-# for feature in features:
-#     print(f', {feature.query} as {feature.name}')
-
-# fd = FeatureDefiner('credit_bureau_a', period_cols=None, depth=2)
-# features = fd.define_simple_features(20)
-# for feature in features:
-#     print(f', {feature.query} as {feature.name}')
-
-# fd = FeatureDefiner('credit_bureau_b', period_cols=None, depth=2)
-# features = fd.define_simple_features(20)
-# for feature in features:
-#     print(f', {feature.query} as {feature.name}')
