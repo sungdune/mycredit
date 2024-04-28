@@ -14,11 +14,11 @@ new_feature_def = dict()
 for file in glob.glob(f'{FEATURE_DEF_PATH}/*.json'):
     with open(file, 'r') as f:
         feature_def = json.load(f)
-    new_feature_def.update({
+    new_feature_def = {
         feature_name: feature 
         for feature_name, feature in feature_def.items() 
-        if feature_name in feature_selection})
-len(new_feature_def)
+        if feature_name in feature_selection}
 
-with open('data/feature_definition.json', 'w') as f:
-    json.dump(new_feature_def, f)
+    file = file.replace('feature_definition', 'feature_definition_new')
+    with open(file, 'w') as f:
+        json.dump(new_feature_def, f)
