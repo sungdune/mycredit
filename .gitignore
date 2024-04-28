@@ -160,6 +160,6 @@ cython_debug/
 #.idea/
 
 # data
-data/
+data/feature_definition
 
 .DS_Store
